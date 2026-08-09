@@ -1,5 +1,6 @@
 import asyncpg
-from models import Comic, ComicCreate
+
+from .models import Comic, ComicCreate
 
 
 async def add_comic(comic: ComicCreate, db: asyncpg.Pool):
