@@ -16,10 +16,11 @@ async def lifespan(app: FastAPI):
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS comics(
                 id SERIAL PRIMARY KEY,
-                issue INTEGER,
-                name TEXT,
-                publisher TEXT,
-                UNIQUE(issue, name, publisher)
+                issue INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                publisher TEXT NOT NULL,
+                writer TEXT NOT NULL,
+                UNIQUE(issue, name, publisher, writer)
             )
         """)
 
