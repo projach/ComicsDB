@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db = await asyncpg.create_pool(DATABASE_URL)
