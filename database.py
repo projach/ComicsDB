@@ -1,28 +1,30 @@
+import os
 from contextlib import asynccontextmanager
 
-import aiosqlite
+import asyncpg
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 
-
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.db = await aiosqlite.connect("comics.db")
+    app.state.db = await asyncpg.create_pool(DATABASE_URL)
 
-    await app.state.db.execute("""
-        CREATE TABLE IF NOT EXISTS comics(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            issue INTEGER,
-            name TEXT,
-            publisher TEXT,
-            UNIQUE(issue, name, publisher)
-        )
-    """)
-
-    await app.state.db.commit()
+    async with app.state.db.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS comics(
+                id SERIAL PRIMARY KEY,
+                issue INTEGER,
+                name TEXT,
+                publisher TEXT,
+                UNIQUE(issue, name, publisher)
+            )
+        """)
 
     yield
 
     await app.state.db.close()
 
-async def get_db(request: Request) -> aiosqlite.Connection:
+async def get_db(request: Request):
     return request.app.state.db

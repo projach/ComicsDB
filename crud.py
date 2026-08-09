@@ -1,46 +1,45 @@
-import aiosqlite
-import models
+import asyncpg
+from models import Comic, ComicCreate
 
 
-async def add_comic(comic: models.ComicCreate, db: aiosqlite.Connection):
-    cursor = await db.execute(
-        "INSERT INTO comics (issue, name, publisher) VALUES(?,?,?)",
-        (comic.issue, comic.name, comic.publisher),
-    )
-    await db.commit()
-    id = cursor.lastrowid
-    return models.Comic(id=id, **comic.model_dump())
+async def add_comic(comic: ComicCreate, db: asyncpg.Pool):
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO comics (issue, name, publisher) VALUES($1,$2,$3) RETURNING id",
+            comic.issue, comic.name, comic.publisher
+        )
+    return Comic(id=row["id"], **comic.model_dump())
 
 
 async def update_comic_by_id(
     id: int,
-    comic: models.ComicCreate,
-    db: aiosqlite.Connection
-):
-    cursor = await db.execute(
-        "UPDATE comics SET name = ?, issue = ?, publisher = ? WHERE id = ?",
-        [comic.name, comic.issue, comic.publisher, id],
-    )
-    await db.commit()
-    return cursor.rowcount > 0
+    comic: ComicCreate,
+    db: asyncpg.Pool
+) -> bool:
+    async with db.acquire() as conn:
+        result = await conn.execute(
+            "UPDATE comics SET name = $1, issue = $2, publisher = $3 WHERE id = $4",
+            comic.name, comic.issue, comic.publisher, id
+        )
+    return result.endswith("1")
 
-async def get_comic_by_id(id: int, db: aiosqlite.Connection):
-    cursor = await db.execute("SELECT name, issue, publisher FROM comics WHERE id = ?",[id])
-    row = await cursor.fetchone()
-    if row is None:
-        return None
-    return {"name": row[0], "issue": row[1], "publisher": row[2]}
+async def get_comic_by_id(id: int, db: asyncpg.Pool):
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, name, issue, publisher FROM comics WHERE id = $1", id
+        )
+        if row is None:
+            return None
+        return Comic(id=row["id"], name=row["name"], issue=row["issue"], publisher=row["publisher"])
 
-async def get_comics(db: aiosqlite.Connection):
-    cursor = await db.execute("SELECT id, name, issue, publisher FROM comics")
-    rows = await cursor.fetchall()
-    return [
-        {"id": r[0], "name": r[1], "issue": r[2], "publisher": r[3]}
-        for r in rows
-    ]
 
-async def delete_comic_by_id(id: int, db: aiosqlite.Connection):
-    cursor = await db.execute("DELETE FROM comics WHERE id = ?", [id])
-    await db.commit()
-    if cursor.rowcount > 0: 
-        return True
+async def get_comics(db: asyncpg.Pool):
+    async with db.acquire() as conn:
+        rows = await conn.fetch("SELECT id, name, issue, publisher FROM comics")
+        return [Comic(id=r["id"], name=r["name"], issue=r["issue"], publisher=r["publisher"]) for r in rows]
+
+
+async def delete_comic_by_id(id: int, db: asyncpg.Pool) -> bool:
+    async with db.acquire() as conn:
+        result = await conn.execute("DELETE FROM comics WHERE id = $1", id)
+        return result.endswith("1")
