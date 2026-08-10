@@ -1,4 +1,5 @@
 import asyncpg
+from core.auth import get_current_user
 from core.database import get_db
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -9,16 +10,16 @@ router = APIRouter(prefix="/comics", tags=["comics"])
 
 
 @router.post("", response_model=Comic, status_code=201)
-async def add_comic(comic: ComicCreate, db = Depends(get_db)):  # noqa: B008
+async def add_comic(comic: ComicCreate, db = Depends(get_db), current_user: dict = Depends(get_current_user)):  # noqa: B008
     try:
-        return await crud.add_comic(comic, db)
+        return await crud.add_comic(comic, db, current_user["id"])
     except asyncpg.UniqueViolationError:
         raise HTTPException(status_code=409, detail="Comic already exists")
 
 @router.put("/{id}")
-async def update_comic_by_id(id: int, comic: ComicCreate, db = Depends(get_db)): # noqa: B008
+async def update_comic_by_id(id: int, comic: ComicCreate, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
     try:
-        updated = await crud.update_comic_by_id(id, comic, db)
+        updated = await crud.update_comic_by_id(id, comic, db, current_user["id"])
     except asyncpg.UniqueViolationError:
         raise HTTPException(status_code=409, detail="Another comic already has this name/issue/publisher")
     if not updated:
@@ -26,19 +27,19 @@ async def update_comic_by_id(id: int, comic: ComicCreate, db = Depends(get_db)):
     return {"ok": True}
 
 @router.get("/{id}")
-async def get_comic_by_id(id: int, db = Depends(get_db)): # noqa: B008
-    comic = await crud.get_comic_by_id(id, db)
+async def get_comic_by_id(id: int, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
+    comic = await crud.get_comic_by_id(id, db, current_user["id"])
     if comic is None:
         raise HTTPException(status_code=404, detail= "comic not found")
     return comic
 
 @router.get("", response_model=list[Comic])
-async def get_comics(db = Depends(get_db)): # noqa: B008
-    return await crud.get_comics(db)
+async def get_comics(db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
+    return await crud.get_comics(db, current_user["id"])
 
 @router.delete("/{id}", response_model=Comic)
-async def delete_comic_by_id(id: int, db = Depends(get_db)): # noqa: B008
-    updated = await crud.delete_comic_by_id(id, db)
+async def delete_comic_by_id(id: int, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
+    updated = await crud.delete_comic_by_id(id, db, current_user["id"])
     if not updated:
         raise HTTPException(404, "Comic not found")
     return {"ok": True}
