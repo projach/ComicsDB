@@ -24,11 +24,11 @@ def hash_password(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(ENCODING), hashed.encode(ENCODING))
 
-def create_access_token(data: dict) -> str:
+def create_access_token(data: dict) -> tuple[str, datetime]:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM), expire
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),

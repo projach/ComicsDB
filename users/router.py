@@ -23,5 +23,9 @@ async def login(user: UserCreate, db=Depends(get_db)):  # noqa: B008
     row = await crud.get_user_by_username(db=db, username=user.username)
     if row is None or not verify_password(user.password, row["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = create_access_token({"sub":row["username"]})
-    return {"access_token": token, "token_type": "bearer"}
+    token, expires_at = create_access_token({"sub":row["username"]})
+    return {
+        "access_token": token, 
+        "token_type": "bearer",
+        "expires_at": expires_at
+    }
