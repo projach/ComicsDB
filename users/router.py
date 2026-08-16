@@ -1,9 +1,9 @@
 import asyncpg
-from core.auth import create_access_token, hash_password, verify_password
-from core.database import get_db
 from fastapi import APIRouter, Depends, HTTPException
 
 import users.crud as crud  # noqa: PLR0402
+from core.auth import create_access_token, hash_password, verify_password
+from core.database import get_db
 
 from .models import UserCreate, UserOut
 

@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+
 from users.crud import get_user_by_username
 
 from .database import get_db
@@ -19,7 +20,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    print("password is: "+password)
     return pwd_context.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:
