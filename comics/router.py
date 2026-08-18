@@ -1,13 +1,23 @@
 import asyncpg
 from core.auth import get_current_user
 from core.database import get_db
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from enum import Enum
 
 import comics.crud as crud  # noqa: PLR0402
 from comics.models import Comic, ComicCreate
 
+
 router = APIRouter(prefix="/comics", tags=["comics"])
 
+class SortField(str, Enum):
+    name = "name"
+    publisher = "publisher"
+    writer = "writer"
+
+class SortOrder(str, Enum):
+    asc = "ASC"
+    desc = "DESC"
 
 @router.post("", response_model=Comic, status_code=201)
 async def add_comic(comic: ComicCreate, db = Depends(get_db), current_user: dict = Depends(get_current_user)):  # noqa: B008
@@ -34,8 +44,16 @@ async def get_comic_by_id(id: int, db = Depends(get_db), current_user: dict = De
     return comic
 
 @router.get("", response_model=list[Comic])
-async def get_comics(db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
-    return await crud.get_comics(db, current_user["id"])
+async def get_comics(
+    sort_by: SortField = SortField.name,
+    sort_order: SortOrder = SortOrder.asc,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db = Depends(get_db), # noqa: B008
+    current_user: dict = Depends(get_current_user) # noqa: B008
+):
+    sort = f"{sort_order} {sort_by}"
+    return await crud.get_comics(sort=sort, offset=offset, limit=limit, db=db, current_user=current_user["id"])
 
 @router.delete("/{id}", response_model=Comic)
 async def delete_comic_by_id(id: int, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
