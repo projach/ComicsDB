@@ -11,7 +11,6 @@ async def add_comic(comic: ComicCreate, db: asyncpg.Pool, current_user: str):
         )
     return Comic(id=row["id"], **comic.model_dump())
 
-
 async def update_comic_by_id(
     id: int,
     comic: ComicCreate,
@@ -36,9 +35,15 @@ async def get_comic_by_id(id: int, db: asyncpg.Pool, current_user: str):
         return Comic(id=row["id"], name=row["name"], issue=row["issue"], publisher=row["publisher"], writer=row["writer"])
 
 
-async def get_comics(db: asyncpg.Pool, current_user: str):
+async def get_comics(sort: str, offset: int, limit: int, db: asyncpg.Pool, current_user: str):
     async with db.acquire() as conn:
-        rows = await conn.fetch("SELECT id, name, issue, publisher, writer FROM comics WHERE user_id = $1", current_user)
+        rows = await conn.fetch(
+            "SELECT id, name, issue, publisher, writer FROM comics WHERE user_id = $1 ORDER BY $2 OFFSET $3 LIMIT $4",
+            current_user, 
+            sort,
+            offset, 
+            limit
+        )
         return [Comic(id=r["id"], name=r["name"], issue=r["issue"], publisher=r["publisher"], writer=r["writer"]) for r in rows]
 
 
