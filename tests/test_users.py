@@ -4,7 +4,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_register_and_login(client: AsyncClient):
     response = await client.post("/users/register", json={
-        "username": "projach", "password": "123456789"
+        "username": "projach", "password": "123456789", "email":"a@g.c"
     })
     assert response.status_code == 201
     assert response.json()["username"] == "projach"
@@ -19,6 +19,18 @@ async def test_register_and_login(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient):
+    await client.post("/users/register", json={
+        "username": "projach", "password": "123456789", "email":"a@g.c"
+    })
+
+    response = await client.post("/users/login", json={
+        "username": "projach", "password": "11231233"
+    })
+
+    assert response.status_code == 401
+    
+@pytest.mark.asyncio
+async def test_login_missing_email(client: AsyncClient):
     await client.post("/users/register", json={
         "username": "projach", "password": "123456789"
     })
