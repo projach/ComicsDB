@@ -11,13 +11,19 @@ from comics.models import Comic, ComicCreate
 router = APIRouter(prefix="/comics", tags=["comics"])
 
 class SortField(str, Enum):
-    name = "name"
+    issue = "issue"
+    comic_name = "name"
     publisher = "publisher"
     writer = "writer"
+    release_date = "release_date"
+    aquired_date = "aquired_date"
+    cover = "cover"
+    comic_shop = "comic_shop"
+    price = "price"
 
 class SortOrder(str, Enum):
-    asc = "ASC"
-    desc = "DESC"
+    asc = "asc"
+    desc = "desc"
 
 @router.post("", response_model=Comic, status_code=201)
 async def add_comic(comic: ComicCreate, db = Depends(get_db), current_user: dict = Depends(get_current_user)):  # noqa: B008
@@ -36,7 +42,7 @@ async def update_comic_by_id(id: int, comic: ComicCreate, db = Depends(get_db), 
         raise HTTPException(status_code=404, detail="Comic not found")
     return {"ok": True}
 
-@router.get("/{id}")
+@router.get("/{id}", response_model=Comic)
 async def get_comic_by_id(id: int, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
     comic = await crud.get_comic_by_id(id, db, current_user["id"])
     if comic is None:
@@ -45,17 +51,17 @@ async def get_comic_by_id(id: int, db = Depends(get_db), current_user: dict = De
 
 @router.get("", response_model=list[Comic])
 async def get_comics(
-    sort_by: SortField = SortField.name,
+    sort_by: SortField = SortField.comic_name,
     sort_order: SortOrder = SortOrder.asc,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     db = Depends(get_db), # noqa: B008
     current_user: dict = Depends(get_current_user) # noqa: B008
 ):
-    sort = f"{sort_order} {sort_by}"
+    sort = f"{sort_by.value} {sort_order.value.upper()}"
     return await crud.get_comics(sort=sort, offset=offset, limit=limit, db=db, current_user=current_user["id"])
 
-@router.delete("/{id}", response_model=Comic)
+@router.delete("/{id}")
 async def delete_comic_by_id(id: int, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008
     updated = await crud.delete_comic_by_id(id, db, current_user["id"])
     if not updated:
