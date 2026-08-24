@@ -3,8 +3,8 @@ from httpx import AsyncClient
 from core.logging import logger
 
 
-async def get_token(client: AsyncClient, username="projach", password="12345678"):
-    await client.post("/users/register", json={"username": username, "password": password})
+async def get_token(client: AsyncClient, username="projach", password="12345678", email= "a@g.c"):
+    await client.post("/users/register", json={"username": username, "password": password, "email":email})
     response = await client.post("/users/login", json={"username": username, "password": password})
 
     return response.json()["access_token"]
@@ -54,7 +54,7 @@ async def test_user_cannot_see_others_comics(client: AsyncClient):
     projach_token = await get_token(client)
     headers_projach = {"Authorization": f"Bearer {projach_token}"}
 
-    luckypro_token = await get_token(client, "luckypro", "12345678")
+    luckypro_token = await get_token(client, "luckypro", "12345678", "a@c.c")
     headers_luckypro = {"Authorization": f"Bearer {luckypro_token}"}
 
     await client.post("/comics", json={

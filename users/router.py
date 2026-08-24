@@ -5,7 +5,7 @@ import users.crud as crud  # noqa: PLR0402
 from core.auth import create_access_token, hash_password, verify_password
 from core.database import get_db
 
-from .models import UserCreate, UserOut
+from .models import UserCreate, UserOut, User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -13,13 +13,13 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def register(user: UserCreate, db=Depends(get_db)):  # noqa: B008
     hashed_password = hash_password(password=user.password)
     try:
-        new_user = await crud.create_user(db=db, username=user.username, hashed_password=hashed_password)
+        new_user = await crud.create_user(db=db, username=user.username, hashed_password=hashed_password, email=user.email)
     except asyncpg.UniqueViolationError:
-        raise HTTPException(status_code=409, detail="Username already taken")
+        raise HTTPException(status_code=409, detail="Username or email already registered")
     return new_user
 
 @router.post(path="/login")
-async def login(user: UserCreate, db=Depends(get_db)):  # noqa: B008
+async def login(user: User, db=Depends(get_db)):  # noqa: B008
     row = await crud.get_user_by_username(db=db, username=user.username)
     if row is None or not verify_password(user.password, row["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid username or password")
