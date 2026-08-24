@@ -19,7 +19,7 @@ async def client():
         yield ac
 
 @pytest_asyncio.fixture(autouse=True)
-async def clean_db(client):
+async def clean_db(client): #we need client here to depend on for correct order
     pool = await asyncpg.create_pool(TEST_DATABASE_URL)
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM comics")

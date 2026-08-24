@@ -1,8 +1,8 @@
 import pytest
-
+from httpx import AsyncClient
 
 @pytest.mark.asyncio
-async def test_register_and_login(client):
+async def test_register_and_login(client: AsyncClient):
     response = await client.post("/users/register", json={
         "username": "projach", "password": "123456789"
     })
@@ -18,7 +18,7 @@ async def test_register_and_login(client):
 
 
 @pytest.mark.asyncio
-async def test_login_wrong_password(client):
+async def test_login_wrong_password(client: AsyncClient):
     await client.post("/users/register", json={
         "username": "projach", "password": "123456789"
     })
