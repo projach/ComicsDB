@@ -18,3 +18,8 @@ class VerifyRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6)
     
     model_config = {"extra":"forbid"}
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
+
+    model_config = {"extra":"forbid"}
