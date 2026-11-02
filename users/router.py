@@ -33,6 +33,7 @@ async def register(user: UserCreate, db=Depends(get_db), redis=Depends(get_redis
         raise HTTPException(
             status_code=429,
             detail=f"Please wait {e.seconds_remaining} seconds before requesting another code",
+            headers={"Retry-After": str(e.seconds_remaining)}
         )
         
     send_email(to=user.email, template=auth_code_template(code=code))
@@ -42,17 +43,21 @@ async def register(user: UserCreate, db=Depends(get_db), redis=Depends(get_redis
 @router.post(path="/resend-code", status_code=201)
 async def resend_code(payload:ResendCodeRequest, redis=Depends(get_redis)):
     try:
-        code = await resend_pending_signup_code(payload.email, redis_client=redis)
+        code, ttl = await resend_pending_signup_code(payload.email, redis_client=redis)
     except CooldownException as e:
         raise HTTPException(
             status_code=429,
             detail=f"Please wait {e.seconds_remaining} seconds before requesting another code",
+            headers={"Retry-After": str(e.seconds_remaining)}
         )
     except PendingSignupNotFoundException:
         raise HTTPException(status_code=404, detail="No pending registration found for this email")
 
     send_email(payload.email, auth_code_template(code))
-    return {"detail": "Verification code sent"}
+    return {
+        "detail": "Verification code sent",
+        "Retry-After": ttl
+    }
 
 @router.post(path="/verify", response_model=UserOut, status_code=201)
 async def verify(payload:VerifyRequest, db=Depends(get_db), redis=Depends(get_redis)) -> UserOut:

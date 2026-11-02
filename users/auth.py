@@ -49,8 +49,9 @@ async def delete_pending_signup(email: str, redis_client: Redis):
     await redis_client.delete(f"pending_signup:{email}")
 
 
-async def resend_pending_signup_code(email: str, redis_client: Redis) -> str:
+async def resend_pending_signup_code(email: str, redis_client: Redis) -> tuple[str, int]:
     cooldown_key = f"resend_cooldown:{email}"
+
     if await redis_client.exists(cooldown_key):
         ttl = await redis_client.ttl(cooldown_key)
         raise CooldownException(seconds_remaining=ttl)
@@ -69,4 +70,4 @@ async def resend_pending_signup_code(email: str, redis_client: Redis) -> str:
     )
     await redis_client.set(cooldown_key, "1", ex=RESEND_CODE_TIMOUT_SECONDS)
 
-    return code
+    return code, RESEND_CODE_TIMOUT_SECONDS
