@@ -2,16 +2,31 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 
 import users.crud as crud  # noqa: PLR0402
-from users.auth import create_pending_signup, get_pending_signup, delete_pending_signup, resend_pending_signup_code
-from core.auth import create_access_token, hash_password, verify_password
-from users.exceptions import CooldownException, PendingSignupNotFoundException
+from core.auth import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    verify_password,
+)
 from core.database import get_db
-from core.redis_client import get_redis
 from core.email.client import send_email
-
-from .models import UserCreate, UserOut, User, VerifyRequest, ResendCodeRequest
-
+from core.email.exceptions import EmailSendException
 from core.email.templates import auth_code_template
+from core.redis_client import get_redis
+from users.auth import (
+    create_pending_signup,
+    delete_pending_signup,
+    get_pending_signup,
+    resend_pending_signup_code,
+)
+from users.exceptions import (
+    CooldownException,
+    EmailPendingException,
+    PendingSignupNotFoundException,
+    UsernamePendingException,
+)
+
+from .models import ResendCodeRequest, User, UserCreate, UserOut, VerifyRequest
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -29,18 +44,31 @@ async def register(user: UserCreate, db=Depends(get_db), redis=Depends(get_redis
     
     try:
         code = await create_pending_signup(email=user.email, username=user.username, hashed_password=hashed_password, redis_client=redis)
-    except CooldownException as e:
+    except UsernamePendingException:
         raise HTTPException(
-            status_code=429,
-            detail=f"Please wait {e.seconds_remaining} seconds before requesting another code",
-            headers={"Retry-After": str(e.seconds_remaining)}
+            status_code=409,
+            detail={"field": "username", "message": "Username already taken"}
         )
-        
-    send_email(to=user.email, template=auth_code_template(code=code))
-    
+    except EmailPendingException:
+        raise HTTPException(
+            status_code=409,
+            detail={"field": "email", "message": "Email already taken"}
+        )
+
+    try:
+        send_email(to=user.email, template=auth_code_template(code=code))
+    except EmailSendException:
+        await redis.delete(
+            f"pending_signup:{user.email}",
+            f"pending_username:{user.username.lower()}",
+        )
+        raise HTTPException(
+            status_code=503, 
+            detail="Could not send verification email, try again later"
+        )
     return {"detail": "Verification code sent"}
 
-@router.post(path="/resend-code", status_code=201)
+@router.post(path="/resend-code", status_code=202)
 async def resend_code(payload:ResendCodeRequest, redis=Depends(get_redis)):
     try:
         code, ttl = await resend_pending_signup_code(payload.email, redis_client=redis)
@@ -53,10 +81,15 @@ async def resend_code(payload:ResendCodeRequest, redis=Depends(get_redis)):
     except PendingSignupNotFoundException:
         raise HTTPException(status_code=404, detail="No pending registration found for this email")
 
-    send_email(payload.email, auth_code_template(code))
+    try:
+        send_email(payload.email, auth_code_template(code))
+    except EmailSendException:
+        await redis.delete(f"resend_cooldown:{payload.email}")
+        raise HTTPException(status_code=503, detail="Could not send verification email, try again later")
+    
     return {
         "detail": "Verification code sent",
-        "Retry-After": ttl
+        "cooldown_seconds": ttl
     }
 
 @router.post(path="/verify", response_model=UserOut, status_code=201)
@@ -89,3 +122,7 @@ async def login(user: User, db=Depends(get_db)):  # noqa: B008
         "token_type": "bearer",
         "expires_at": expires_at
     }
+
+@router.delete(path="/me", status_code=204)
+async def delete_me(db=Depends(get_db), current_user: dict = Depends(get_current_user)):  # noqa: B008
+    await crud.delete_user_by_id(db=db, id=current_user["id"])

@@ -33,7 +33,7 @@ def create_access_token(data: dict) -> tuple[str, datetime]:
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: asyncpg.Pool = Depends(get_db)  # noqa: B008
-):
+) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")

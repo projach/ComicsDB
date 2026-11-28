@@ -1,6 +1,9 @@
 import asyncpg
 
+from core.logging import logger
+
 from .models import UserOut
+
 
 async def create_user(db: asyncpg.Pool, username: str, hashed_password: str, email: str) -> UserOut:
     async with db.acquire() as conn:
@@ -13,6 +16,7 @@ async def create_user(db: asyncpg.Pool, username: str, hashed_password: str, ema
 
 async def get_user_by_username(db: asyncpg.Pool, username: str):
     async with db.acquire() as conn:
+        logger.debug(f"We are searching for user with username: {username}")
         row = await conn.fetchrow(
             "SELECT * FROM users WHERE username = $1",
             username
@@ -27,3 +31,12 @@ async def get_user_by_email(db: asyncpg.Pool, email: str):
             email
         )
         return row
+
+async def delete_user_by_id(db: asyncpg.Pool, id: int) -> bool:
+    async with db.acquire() as conn:
+        conn: asyncpg.Connection
+        deleted = await conn.execute(
+            "DELETE FROM users WHERE id = $1",
+            id
+        )
+        return deleted == "DELETE 1"

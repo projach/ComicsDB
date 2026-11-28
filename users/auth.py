@@ -1,10 +1,14 @@
 import json
 import secrets
-from datetime import datetime, timezone
 
 import redis.asyncio as Redis
 
-from .exceptions import CooldownException, PendingSignupNotFoundException
+from .exceptions import (
+    CooldownException,
+    EmailPendingException,
+    PendingSignupNotFoundException,
+    UsernamePendingException,
+)
 
 AUTH_CODE_LIFE_SECONDS = 600
 RESEND_CODE_TIMOUT_SECONDS = 60
@@ -12,30 +16,24 @@ RESEND_CODE_TIMOUT_SECONDS = 60
 async def create_pending_signup(
     email: str, username: str, hashed_password: str, redis_client: Redis
 ) -> str:
-    cooldown_key = f"resend_cooldown:{email}"
-    if await redis_client.exists(cooldown_key):
-        ttl = await redis_client.ttl(cooldown_key)
-        raise CooldownException(seconds_remaining=ttl)
+    username_key = f"pending_username:{username.lower()}"
+    signup_key = f"pending_signup:{email}"
+
+    if not await redis_client.set(username_key, email, nx=True, ex=AUTH_CODE_LIFE_SECONDS):
+        raise UsernamePendingException()
 
     code = f"{secrets.randbelow(1000000):06d}"
-    await redis_client.set(
-        name=f"pending_signup:{email}",
+
+    created = await redis_client.set(
+        signup_key,
+        json.dumps({"username": username, "hashed_password": hashed_password, "email": email, "code": code}),
+        nx=True,
         ex=AUTH_CODE_LIFE_SECONDS,
-        value=json.dumps(
-            {
-                "username": username,
-                "hashed_password": hashed_password,
-                "email": email,
-                "code": code,
-            }
-        ),
     )
 
-    await redis_client.set(
-        name=cooldown_key,
-        value=str(datetime.now(timezone.utc)),
-        ex=RESEND_CODE_TIMOUT_SECONDS,
-    )
+    if not created:
+        await redis_client.delete(username_key)
+        raise EmailPendingException()
 
     return code
 

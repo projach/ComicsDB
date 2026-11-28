@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from .conftest import user_payload, get_verification_code
+from tests.conftest import user_payload, get_verification_code
 import redis.asyncio as Redis
 import json
 

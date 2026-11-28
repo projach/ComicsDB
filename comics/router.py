@@ -55,11 +55,12 @@ async def get_comics(
     sort_order: SortOrder = SortOrder.asc,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None, min_length=2, max_length=100),
     db = Depends(get_db), # noqa: B008
     current_user: dict = Depends(get_current_user) # noqa: B008
 ):
     sort = f"{sort_by.value} {sort_order.value.upper()}"
-    return await crud.get_comics(sort=sort, offset=offset, limit=limit, db=db, current_user=current_user["id"])
+    return await crud.get_comics(sort=sort, offset=offset, limit=limit, db=db, current_user=current_user["id"], search=search)
 
 @router.delete("/{id}")
 async def delete_comic_by_id(id: int, db = Depends(get_db), current_user: dict = Depends(get_current_user)): # noqa: B008

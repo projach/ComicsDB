@@ -70,32 +70,41 @@ async def get_comic_by_id(id: int, db: asyncpg.Pool, current_user: str):
             comic_shop=row["comic_shop"]
         )
 
+def escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
-async def get_comics(sort: str, offset: int, limit: int, db: asyncpg.Pool, current_user: str):
+
+async def get_comics(sort: str, offset: int, limit: int, db: asyncpg.Pool, current_user: str, search: str | None):
     async with db.acquire() as conn:
         conn: asyncpg.Connection
-        logger.debug(f"sort is {sort}")
-        rows = await conn.fetch(
-            f"""SELECT id, issue, name, publisher, writer, release_date, acquired_date, cover, comic_shop, price 
-            FROM comics WHERE user_id = $1 ORDER BY {sort} OFFSET $2 LIMIT $3""",
-            current_user,
-            offset, 
-            limit
-        )
-        return [
-            Comic(
-                id=row["id"], 
-                name=row["name"], 
-                issue=row["issue"], 
-                publisher=row["publisher"], 
-                writer=row["writer"], 
-                release_date=row["release_date"], 
-                acquired_date=row["acquired_date"], 
-                cover=row["cover"],
-                comic_shop=row["comic_shop"],
-                price=row["price"]
-            ) for row in rows
-        ]
+
+        conditions = ["user_id = $1"]
+        params: list = [current_user]
+
+        search = search.strip() if search else None
+        if search:
+            params.append(f"%{escape_like(search)}%")
+            n = len(params)
+            conditions.append(
+                f"(name ILIKE ${n} OR publisher ILIKE ${n} OR writer ILIKE ${n})"
+            )
+
+        params.extend([offset, limit])
+        offset_idx, limit_idx = len(params) - 1, len(params)
+
+        query = f"""
+            SELECT id, issue, name, publisher, writer, release_date,
+                acquired_date, cover, comic_shop, price
+            FROM comics
+            WHERE {" AND ".join(conditions)}
+            ORDER BY {sort}, id
+            OFFSET ${offset_idx} LIMIT ${limit_idx}
+        """
+
+        logger.debug(f"query is: {query} search is: {escape_like(search) if search else None} and params are: {params}")
+        rows = await conn.fetch(query, *params)
+
+        return [Comic(**row) for row in rows]
 
 
 async def delete_comic_by_id(id: int, db: asyncpg.Pool, current_user: str) -> bool:

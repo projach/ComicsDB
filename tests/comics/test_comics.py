@@ -1,7 +1,8 @@
 import pytest
 from httpx import AsyncClient
-from core.logging import logger
-from .conftest import AuthedUser
+
+from tests.conftest import AuthedUser
+
 
 def comic_payload(**overrides):
     base = {
@@ -19,8 +20,7 @@ def comic_payload(**overrides):
 
 @pytest.mark.asyncio
 async def test_create_comics_requires_auth(client: AsyncClient):
-    response = await client.post("/comics", json=comic_payload()
-    )
+    response = await client.post("/comics", json=comic_payload())
     assert response.status_code == 401
 
 @pytest.mark.asyncio

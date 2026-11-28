@@ -13,3 +13,4 @@ email-validator==2.3.0
 resend==2.43.0
 redis==8.1.0
 fakeredis==2.38.0
+asyncio-redis==0.16.0
