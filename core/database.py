@@ -20,16 +20,25 @@ async def run_migrations(pool: asyncpg.Pool):
         """)
         applied = {row["version"] for row in await conn.fetch("SELECT version FROM schema_migrations")}
         migrations_dir = "migrations"
+
         for filename in sorted(os.listdir(migrations_dir)):
-            if filename in applied:
+            if filename.startswith((".", "__")) or filename in applied:
                 continue
             with open(os.path.join(migrations_dir, filename)) as f:
                 sql = f.read()
+
             async with conn.transaction():
+                await conn.execute("SELECT pg_advisory_xact_lock(727274)")
+                already = await conn.fetchval(
+                    "SELECT 1 FROM schema_migrations WHERE version = $1", filename
+                )
+                if already:
+                    continue
                 await conn.execute(sql)
-                await conn.execute("INSERT INTO schema_migrations (version) VALUES ($1)", filename)
+                await conn.execute(
+                    "INSERT INTO schema_migrations (version) VALUES ($1)", filename
+                )
             logger.debug(f"Applied migration: {filename}")
-            
             
 @asynccontextmanager
 async def lifespan(app: FastAPI):

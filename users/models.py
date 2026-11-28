@@ -1,16 +1,16 @@
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 Username = Annotated[
     str,
-    Field(
+    StringConstraints(
         strip_whitespace=True,
         min_length=3,
         max_length=14,
         pattern=r"^[A-Za-z0-9_.-]+$",
-        description="3-14 characters: letters, digits, underscore, dot or hyphen. No spaces.",
-    )
+    ),
+    Field(description="3-14 characters: letters, digits, underscore, dot or hyphen. No spaces."),
 ]
 
 class User(BaseModel):

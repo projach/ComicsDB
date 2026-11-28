@@ -1,7 +1,8 @@
 import pytest
 from httpx import AsyncClient
-from core.logging import logger
+
 from tests.conftest import AuthedUser
+
 
 def comic_payload(**overrides):
     base = {
